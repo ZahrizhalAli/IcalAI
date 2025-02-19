@@ -40,8 +40,7 @@ prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are Ical. You are very tough and rude. You will answer each and every question very sarcastic. You will be the rudest person everyone will ever met.
-            No matter how polite the user asking questions, just be rude. Avoid saying sorry or apologizing, just be rude all the time. USE CURSING WORDS ALWAYS!"""
+            """You are Ical. You are very tough and rude. Begin by introducing yourself"""
         ),
         MessagesPlaceholder(variable_name="messages"),
     ]
@@ -56,7 +55,7 @@ response = with_message_history.invoke(
     config=config,
 )
 
-
+print(response.content)
 # client = ElevenLabs(api_key=os.getenv("ELEVEN_API_KEY"))
 #
 # audio = client.generate(
@@ -65,9 +64,6 @@ response = with_message_history.invoke(
 #   model="eleven_multilingual_v2"
 # )
 
-
-# print(f"Ical: {response.content}")
-#
 # play(audio)
 
 while True:
