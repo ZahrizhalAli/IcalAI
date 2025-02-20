@@ -1,94 +1,90 @@
-import assemblyai as aai
-from elevenlabs import play
+# Module for structuring text
+from typing import Annotated
+from typing_extensions import TypedDict
 from dotenv import load_dotenv
-import elevenlabs
-import os
-from elevenlabs import stream
-from elevenlabs.client import ElevenLabs
-from openai import OpenAI
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.messages import HumanMessage
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-
 load_dotenv()
 
+# Langgraph modules for defining graphs
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+
+# Module for setting up OpenAI
 from langchain_openai import ChatOpenAI
+from IPython.display import Image, display
 
-model = ChatOpenAI(
-    model="gpt-4o",
-    streaming=True,
-    # callbacks=[StreamingStdOutCallbackHandler()]
-)
+# Module for Tools
+from langchain_community.tools.tavily_search import TavilySearchResults
 
-store = {}
+# Modules for memory
+from langgraph.checkpoint.memory import MemorySaver
 
-def get_session_history(session_id: str) -> BaseChatMessageHistory:
-    if session_id not in store:
-        store[session_id] = ChatMessageHistory()
-    return store[session_id]
+# Modules for adding tool conditions and nodes
+from langgraph.prebuilt import ToolNode, tools_condition
 
-with_message_history = RunnableWithMessageHistory(model, get_session_history)
+# Define tools
+# Initialize Tavily wrapper to fetch internet data
+tavily_tool = TavilySearchResults()
 
-# create a config that we pass into the runnable every time. This config contains information that is not part of the input directly, but is still useful.
-config = {"configurable": {"session_id": "124"}} # change session_id will refresh the memory
+# Define set of tools
+tools = [tavily_tool]
 
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+# Set LLM with tools and memory
+llm = ChatOpenAI(model="gpt-4o-mini")
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """You are Ical. You are very tough and rude. Begin by introducing yourself"""
-        ),
-        MessagesPlaceholder(variable_name="messages"),
-    ]
-)
+memory = MemorySaver()
 
-chain = prompt | model
+llm_with_tools = llm.bind_tools(tools)
 
-with_message_history = RunnableWithMessageHistory(chain, get_session_history)
+# Define agent state
+class State(TypedDict):
+    # Define messages with metadata
+    messages: Annotated[list, add_messages]
 
-response = with_message_history.invoke(
-    [HumanMessage(content="hello!")],
-    config=config,
-)
 
-print(response.content)
-# client = ElevenLabs(api_key=os.getenv("ELEVEN_API_KEY"))
-#
-# audio = client.generate(
-#   text=response.content,
-#   voice="NMAZvPhCudGzyCDh9Ku4",
-#   model="eleven_multilingual_v2"
-# )
+# Initialize StateGraph
+graph_builder = StateGraph(State)
 
-# play(audio)
 
+# Defining Nodes and Edges
+# Define chatbot function (node) to respond with the model
+def chatbot(state: State):
+    # llm get messages from state so far
+    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+
+# Add the chatbot node to the graph with llm with tools
+graph_builder.add_node("chatbot", chatbot)
+
+# Create Node for Tools
+# Create a ToolNode to handle tool calls and add it to the graph
+tool_node = ToolNode(tools=[tavily_tool])
+graph_builder.add_node("tools", tool_node)
+
+# Set up condition from chatbot to use tools when needed otherwise END
+graph_builder.add_conditional_edges("chatbot", tools_condition)
+
+# Connect tools back to chatbot and add START and END nodes
+graph_builder.add_edge("tools", "chatbot")
+graph_builder.add_edge(START, "chatbot")
+graph_builder.add_edge("chatbot", END)
+
+# Compile the graph to prepare for execution with MEMORY
+graph = graph_builder.compile(checkpointer=memory)
+
+# Define a function to execute the chatbot based on user input
+def stream_graph_updates_with_memory(user_input: str):
+    config = {"configurable": {"thread_id": "single_session_memory"}}
+
+    # Stream the events in the graph
+    for event in graph.stream({"messages": [("user", user_input)]}, config):
+        # Return the agen'ts last response
+        for value in event.values():
+            if "messages" in value and value["messages"]:
+                print("Agent:", value["messages"][-1].content)
+
+# Define the user query and run the chatbot
+user_query = "Hello"
+stream_graph_updates_with_memory(user_query)
 while True:
-    input_message = input("You: ")
 
-    # response = with_message_history.invoke(
-    #     [HumanMessage(content=input_message)],
-    #     config=config,
-    # )
-    # print(response.content)
-    messages = ""
-    print("Ical AI: ")
-    for msg in with_message_history.stream(
-            [HumanMessage(content=input_message)],
-            config=config,
-    ):
-        print(msg.content, end="")
-        messages += msg.content
-
-
-    # audio = client.generate(
-    #     text=messages,
-    #     voice="NMAZvPhCudGzyCDh9Ku4",
-    #     model="eleven_multilingual_v2"
-    # )
-    #
-    # play(audio)
-    print("\n")
+	user_input = str(input("You: "))
+	stream_graph_updates_with_memory(user_input)

@@ -12,7 +12,7 @@ CloneGoodside is built using a modern AI stack optimized for performance and fle
 - **Databases**: PostgreSQL for structured data storage (❌)
 - **Message Queue**: Redis for handling async tasks (❌)
 - **Containerization**: Docker for deployment (❌)
-- **LLM Frameworks**: LangChain (potential migration to LangGraph)
+- **LLM Frameworks**: LangChain and LangGraph 🆕
 - **Other AI Models**: Additional integrations under development
 
 ## 3. How to Install
@@ -47,20 +47,23 @@ Ensure you have the following installed:
 ## 4. Current Capabilities
 CloneGoodside currently supports the following features:
 
-### Voice Cloning
+### Access Internet Knowledge Base 🆕
+- Integrated with Search Tools API to look for information on the internet
+- Automatically trigger internet search when the LLM does not know the information
+
+### Voice Cloning (_Work In Progress_)
 - Generates a synthetic voice that closely mimics the provided audio sample.
 - Uses Eleven Labs' state-of-the-art deep learning models for high-fidelity voice synthesis.
 
-### Simple Chat Capabilities
-- Engages in basic text-based conversations.
+### Simple Chat Capabilities with memories
+- Engages in basic text-based conversations with memories. 🆕
 - Supports predefined responses and limited contextual awareness.
 
 ## 5. Future Capabilities
 ### Enhanced AI Abilities
-1. **Smart Tool and Internet Access**: CloneGoodside will integrate with external tools and access the internet, allowing it to retrieve real-time data, automate tasks, and provide more informed responses.
-2. **Adaptive Communication Style**: Users will be able to upload text samples to train CloneGoodside on their writing style, ensuring responses match their natural tone, phrasing, and level of formality.
-3. **Personalized Memory and Context Awareness**: Future updates will enable CloneGoodside to retain conversational history, allowing for deeper, more contextualized interactions over time.
-4. **Multi-Modal Interaction**: Beyond text and voice, CloneGoodside will support interactions through images and videos, expanding its expressive capabilities.
+1. **Adaptive Communication Style**: Users will be able to upload text samples to train CloneGoodside on their writing style, ensuring responses match their natural tone, phrasing, and level of formality.
+2. **Personalized Memory and Context Awareness**: Future updates will enable CloneGoodside to retain conversational history, allowing for deeper, more contextualized interactions over time.
+3. **Multi-Modal Interaction**: Beyond text and voice, CloneGoodside will support interactions through images and videos, expanding its expressive capabilities.
 
 ## 6. Security and Ethical Guidelines
 CloneGoodside is designed with security and ethical considerations in mind:
