@@ -5,15 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Langgraph modules for defining graphs
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.message import add_messages
 
 # Module for setting up OpenAI
 from langchain_openai import ChatOpenAI
 from IPython.display import Image, display
-
-# Module for Tools
-from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Modules for memory
 from langgraph.checkpoint.memory import MemorySaver
@@ -21,70 +19,93 @@ from langgraph.checkpoint.memory import MemorySaver
 # Modules for adding tool conditions and nodes
 from langgraph.prebuilt import ToolNode, tools_condition
 
-# Define tools
-# Initialize Tavily wrapper to fetch internet data
-tavily_tool = TavilySearchResults()
+# Module for tools
+from tools import tools
 
-# Define set of tools
-tools = [tavily_tool]
-
-# Set LLM with tools and memory
+# Step 2: Set LLM with tools and memory
 llm = ChatOpenAI(model="gpt-4o-mini")
 
 memory = MemorySaver()
 
+# List of tools
+tool_node = ToolNode(tools=tools)
+
 llm_with_tools = llm.bind_tools(tools)
 
-# Define agent state
+
+# Step 3: Define stop function
+# Use MessageState to define the state of the stopping function
+def should_continue(state: MessagesState):
+	# Get the last message from the state
+	last_message = state["messages"][-1]
+
+	# Check if the last message includes tool calls
+	if last_message.tool_calls:
+		return "tools"
+
+	# End the conversation if no tool calls are present
+	return END
+
+
+# Use MessageState to define the state of the dynamic tool caller
+def call_model(state: MessagesState):
+	# Get the last message from the state
+	last_message = state["messages"][-1]
+
+	if isinstance(last_message, AIMessage) and last_message.tool_calls:
+
+		# Return the messages from the tool call
+		return {"messages": [AIMessage(content=last_message.tool_calls[0]["response"])]}
+
+	else:
+		# otherwise proceed with a regular llm response
+		return {"messages": [llm_with_tools.invoke(state["messages"])]}
+
 class State(TypedDict):
     # Define messages with metadata
     messages: Annotated[list, add_messages]
 
 
-# Initialize StateGraph
-graph_builder = StateGraph(State)
+# Step 4: Initialize StateGraph
+graph_builder = StateGraph(MessagesState)
 
-
-# Defining Nodes and Edges
+# Step 5 : Defining Nodes and Edges
 # Define chatbot function (node) to respond with the model
 def chatbot(state: State):
     # llm get messages from state so far
     return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
-# Add the chatbot node to the graph with llm with tools
-graph_builder.add_node("chatbot", chatbot)
 
-# Create Node for Tools
-# Create a ToolNode to handle tool calls and add it to the graph
-tool_node = ToolNode(tools=[tavily_tool])
+# Add nodes for chatbot and tools
+graph_builder.add_node("chatbot", call_model)
 graph_builder.add_node("tools", tool_node)
 
-# Set up condition from chatbot to use tools when needed otherwise END
-graph_builder.add_conditional_edges("chatbot", tools_condition)
-
-# Connect tools back to chatbot and add START and END nodes
-graph_builder.add_edge("tools", "chatbot")
+# Connect the START node to the chatbot
 graph_builder.add_edge(START, "chatbot")
-graph_builder.add_edge("chatbot", END)
 
-# Compile the graph to prepare for execution with MEMORY
+# Define conditions, then loop back to chatbot
+graph_builder.add_conditional_edges("chatbot", should_continue, ["tools", END])
+graph_builder.add_edge("tools", "chatbot")
+
 graph = graph_builder.compile(checkpointer=memory)
 
-# Define a function to execute the chatbot based on user input
-def stream_graph_updates_with_memory(user_input: str):
-    config = {"configurable": {"thread_id": "single_session_memory"}}
+config = {"configurable": {"thread_id": "1"}}
 
-    # Stream the events in the graph
-    for event in graph.stream({"messages": [("user", user_input)]}, config):
-        # Return the agen'ts last response
-        for value in event.values():
-            if "messages" in value and value["messages"]:
-                print("Agent:", value["messages"][-1].content)
 
-# Define the user query and run the chatbot
-user_query = "Hello"
-stream_graph_updates_with_memory(user_query)
+# Create input message with the user's query
+def multi_tool_output(query):
+	inputs = {"messages": [HumanMessage(content=query)]}
+
+	for msg, metadata in graph.stream(inputs, config, stream_mode="messages"):
+
+		# Check if the message has content and is not from human
+		if msg.content and not isinstance(msg, HumanMessage):
+			print(msg.content, end="", flush=True)
+	print("\n")
+
+multi_tool_output("Hello")
+
 while True:
+	queries = str(input("You: "))
 
-	user_input = str(input("You: "))
-	stream_graph_updates_with_memory(user_input)
+	multi_tool_output(queries)
