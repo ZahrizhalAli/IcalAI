@@ -4,7 +4,7 @@ import { Snowflake, Thermometer, Wind } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { motion } from "framer-motion"
 
-export default function Snowy() {
+export default function Snow() {
   return (
     <Card className="relative overflow-hidden group w-72 h-40 cursor-pointer transition-all hover:shadow-lg">
       {/* Gradient Background */}

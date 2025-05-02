@@ -4,7 +4,7 @@ import { Cloud, Droplets, Wind } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { motion } from "framer-motion"
 
-export default function Rainy() {
+export default function Rain() {
   return (
     <Card className="relative overflow-hidden group w-72 h-40 cursor-pointer transition-all hover:shadow-lg">
       {/* Gradient Background */}

@@ -1,10 +1,10 @@
 import { AgentState } from "../../agent-types";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import Rainy from "./rainy";
-import Sunny from "./sunny";
-import Cloudy from "./cloudy";
-import Snowy from "./snowy";
+import Rain from "./rain";
+import Clear from "./clear";
+import Clouds from "./clouds";
+import Snow from "./snow";
 
 interface WeatherNodeProps {
   nodeState: Partial<AgentState>;
@@ -31,10 +31,10 @@ export default function WeatherNode({ nodeState }: WeatherNodeProps) {
   }
 
   const WeatherComponents = {
-    Sunny,
-    Cloudy,
-    Rainy,
-    Snowy,
+    Clear,
+    Clouds,
+    Rain,
+    Snow,
   } as const;
 
   const WeatherComponent = WeatherComponents[nodeState?.weather_forecast?.[0].result];

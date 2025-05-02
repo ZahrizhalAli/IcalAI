@@ -10,7 +10,8 @@ from langchain_core.tools import tool
 
 import random
 import asyncio
-
+import requests
+import os
 
 load_dotenv()
 
@@ -90,20 +91,60 @@ async def create_reminder_tool(reminder_text: str) -> str:
     """Call to create a reminder"""
     return "Reminder created"
 
+@tool
+async def check_calendar_availability_tool(day: str, person_name: str) -> str:
+    """Check calendar availability for a given day."""
+    # Placeholder response - in real app would check actual calendar
+    return f"Check calendar tool"
+
+class WeatherData(TypedDict):
+    """Generated SQL query."""
+    location: str
+    longitude: str
+    latitude: str
+
 
 async def weather(input: WeatherInput, writer: StreamWriter):
     location = input["args"]["query"]
+
+    llm = ChatOpenAI(temperature=0, model="gpt-4o")
+    structured_llm = llm.with_structured_output(WeatherData)
+
+    result = await structured_llm.ainvoke(f"Longitude and latitude of : {location}")
+
+    url = f'https://api.openweathermap.org/data/2.5/weather?lat={result['latitude']}&lon={result['longitude']}&appid={os.getenv("OPENWEATHER_API_KEY")}'
 
     # Send custom event to the client. It will update the state of the last checkpoint and all child nodes.
     # Note: if there are multiple child nodes (e.g. parallel nodes), the state will be updated for all of them.
     writer({"weather_forecast": [
            {"location": location, "search_status": f"Checking weather in {location}"}]})
 
-    await asyncio.sleep(2)
-    weather = random.choice(["Sunny", "Cloudy", "Rainy", "Snowy"])
+    response = requests.get(url)
+    # await asyncio.sleep(2)
+    # weather = random.choice(["Sunny", "Cloudy", "Rainy", "Snowy"])
 
+    # Check if the request was successful
+    if response.status_code == 200:
+        data = response.json()  # Parse the JSON response
+        print(data)  # Print the weather data
+    else:
+        print(f"Error: {response.status_code}")  # Print the error code
+
+    weather = data["weather"][0]["main"]
+    print(weather)
     return {"messages": [ToolMessage(content=weather, tool_call_id=input["id"])], "weather_forecast": [{"location": location, "search_status": "", "result": weather}]}
 
+
+
+async def check_calendar_availability(input: ToolNodeArgs):
+    name = interrupt(input['args']['person_name'])
+
+    if name:
+        res =  f"Available times on {input['args']['day']}: 9:00 AM, 2:00 PM, 4:00 PM"
+
+
+
+    return {"messages": [ToolMessage(content=res, tool_call_id=input["id"])]}
 
 async def reminder(input: ToolNodeArgs):
     res = interrupt(input['args']['reminder_text'])
@@ -147,6 +188,7 @@ async def chatbot(state: State):
     tools = [
         weather_tool,
         create_reminder_tool,
+        check_calendar_availability_tool
     ]
 
     llm = ChatOpenAI(model="gpt-4o-mini").bind_tools(tools)
@@ -155,7 +197,7 @@ async def chatbot(state: State):
 
 
 # Chatbot node router. Based on tool calls, creates the list of the next parallel nodes.
-def assign_tool(state: State) -> Literal["weather", "reminder", "__end__"]:
+def assign_tool(state: State) -> Literal["weather", "reminder","check_calendar_availability", "__end__"]:
     messages = state["messages"]
     last_message = messages[-1]
     if last_message.tool_calls:
@@ -165,6 +207,9 @@ def assign_tool(state: State) -> Literal["weather", "reminder", "__end__"]:
                 send_list.append(Send('weather', tool))
             elif tool["name"] == 'create_reminder_tool':
                 send_list.append(Send('reminder', tool))
+            elif tool["name"] == 'check_calendar_availability_tool':
+                send_list.append(Send('check_calendar_availability', tool))
+
             # elif any(tool["name"] == mcp_tool.name for mcp_tool in [tool for tools_list in mcp_servers_with_tools.values() for tool in tools_list]):
             #     server_name = tool_to_server_lookup.get(tool["name"], None)
             #     args = McpToolNodeArgs(
@@ -198,11 +243,14 @@ builder = StateGraph(State)
 builder.add_node("chatbot", chatbot)
 builder.add_node("weather", weather)
 builder.add_node("reminder", reminder)
+builder.add_node("check_calendar_availability", check_calendar_availability)
+
 # builder.add_node("mcp_tool", mcp_tool)
 
 builder.add_edge(START, "chatbot")
 builder.add_conditional_edges("chatbot", assign_tool)
 builder.add_edge("weather", "chatbot")
+builder.add_edge("check_calendar_availability", "chatbot")
 builder.add_edge("reminder", "chatbot")
 # builder.add_edge("mcp_tool", "chatbot")
 

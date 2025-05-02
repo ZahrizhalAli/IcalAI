@@ -3,7 +3,7 @@
 import { Cloud, Droplets, Wind } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
-export default function Cloudy() {
+export default function Clouds() {
   return (
     <Card className="relative overflow-hidden group w-72 h-40 cursor-pointer transition-all hover:shadow-lg">
       {/* Gradient Background */}
