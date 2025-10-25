@@ -38,7 +38,7 @@ export function AppSidebar() {
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <Bot className="size-4" />
                 </div>
-                <span className="font-semibold">Agent Demo App</span>
+                <span className="font-semibold">Stella</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -67,16 +67,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="flex flex-col items-center text-sm gap-4">
           <ThemeSwitcher />
-          <span>Made by{" "}
-            <a
-              href="https://akveo.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 font-semibold underline underline-offset-4"
-            >
-              Akveo
-            </a>
-          </span>
+
         </div>
       </SidebarFooter>
     </Sidebar>
