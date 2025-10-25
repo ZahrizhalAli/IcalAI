@@ -34,6 +34,7 @@ def checkpoint_event(value):
         return formatted_writes
 
     configurable = value["payload"]["config"]["configurable"]
+    print(f"WRITES {value["payload"]["metadata"]}")
     data = {
         "next": value["payload"]["next"],
         "values": format_values(value["payload"]["values"]),
