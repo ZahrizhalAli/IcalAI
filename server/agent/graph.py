@@ -7,7 +7,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import StreamWriter, interrupt, Send
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
-
+import os
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 import random
 import asyncio
 import requests
@@ -256,8 +260,18 @@ builder.add_edge("reminder", "chatbot")
 
 builder.add_edge("chatbot", END)
 
-memory = MemorySaver()
-graph = builder.compile(checkpointer=memory)
+# memory = MemorySaver()
+#
+# graph = builder.compile(checkpointer=memory)
+# conn_string = os.environ.get("DATABASE_URL")
+# if not conn_string:
+#     raise ValueError("DATABASE_URL environment variable not set. Please add it to your .env file.")
+#
+# # Set up the PostgresSaver
+# db = AsyncPostgresSaver.from_conn_string(conn_string)
+# db.setup()
+#
+# graph = builder.compile(checkpointer=db)
 
 
 # To execute graph in LangGraph Studio uncomment the following line

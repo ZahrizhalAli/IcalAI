@@ -8,11 +8,16 @@ from utils import message_chunk_event, interrupt_event, custom_event, checkpoint
 from contextlib import asynccontextmanager
 import asyncio
 import argparse
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from agent.graph import graph
+from langgraph.checkpoint.postgres import PostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
+from agent.graph import builder
 
 # Track active connections
 active_connections: Dict[str, asyncio.Event] = {}
+
 
 app = FastAPI(
     title="LangGraph API",
@@ -50,10 +55,16 @@ async def history(thread_id: str | None = None):
 
     config = {"configurable": {"thread_id": thread_id}}
 
-    records = []
-    async for state in graph.aget_state_history(config):
-        records.append(format_state_snapshot(state))
-    return records
+    async with AsyncPostgresSaver.from_conn_string("postgresql://postgres:password@localhost:5432/postgres") as checkpointer:
+
+        #checkpointer.setup()
+
+        graph = builder.compile(checkpointer)
+
+        records = []
+        async for state in graph.aget_state_history(config):
+            records.append(format_state_snapshot(state))
+        return records
 
 
 @app.post("/agent/stop")
@@ -117,32 +128,35 @@ async def agent(request: Request):
     print("input:", input)
     print("config:", config)
 
+
     async def generate_events() -> AsyncGenerator[dict, None]:
         try:
-            async for chunk in graph.astream(
-                input,
-                config,
-                stream_mode=["debug", "messages", "updates", "custom"],
-            ):
-                if stop_event.is_set():
-                    break
+            async with AsyncPostgresSaver.from_conn_string("postgresql://postgres:password@localhost:5432/postgres") as checkpointer:
+                graph = builder.compile(checkpointer)
+                async for chunk in graph.astream(
+                    input,
+                    config,
+                    stream_mode=["debug", "messages", "updates", "custom"],
+                ):
+                    if stop_event.is_set():
+                        break
 
-                chunk_type, chunk_data = chunk
+                    chunk_type, chunk_data = chunk
 
-                if chunk_type == "debug":
-                    # type can be checkpoint, task, task_result
-                    debug_type = chunk_data["type"]
-                    if debug_type == "checkpoint":
-                        yield checkpoint_event(chunk_data)
-                    elif debug_type == "task_result":
-                        interrupts = chunk_data["payload"].get(
-                            "interrupts", [])
-                        if interrupts and len(interrupts) > 0:
-                            yield interrupt_event(interrupts)
-                elif chunk_type == "messages":
-                    yield message_chunk_event(chunk_data[1]["langgraph_node"], chunk_data[0])
-                elif chunk_type == "custom":
-                    yield custom_event(chunk_data)
+                    if chunk_type == "debug":
+                        # type can be checkpoint, task, task_result
+                        debug_type = chunk_data["type"]
+                        if debug_type == "checkpoint":
+                            yield checkpoint_event(chunk_data)
+                        elif debug_type == "task_result":
+                            interrupts = chunk_data["payload"].get(
+                                "interrupts", [])
+                            if interrupts and len(interrupts) > 0:
+                                yield interrupt_event(interrupts)
+                    elif chunk_type == "messages":
+                        yield message_chunk_event(chunk_data[1]["langgraph_node"], chunk_data[0])
+                    elif chunk_type == "custom":
+                        yield custom_event(chunk_data)
         finally:
             if thread_id in active_connections:
                 del active_connections[thread_id]

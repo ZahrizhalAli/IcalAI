@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import StreamWriter, interrupt, Send, Command
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
-
+import os
 import random
 import asyncio
 from .prompts import agent_system_prompt, triage_system_prompt, triage_user_prompt, profile, email, prompt_instructions
@@ -15,6 +15,7 @@ from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, Literal, Annotated
 from langchain.chat_models import init_chat_model
+from langgraph.checkpoint.postgres import AsyncPostgresSaver
 
 load_dotenv()
 llm = init_chat_model("openai:gpt-4o-mini")
@@ -198,9 +199,17 @@ builder.add_edge("reminder", "chatbot")
 
 builder.add_edge("chatbot", END)
 
-memory = MemorySaver()
-graph = builder.compile(checkpointer=memory)
+# memory = MemorySaver()
+#
+# graph = builder.compile(checkpointer=memory)
+conn_string = os.environ.get("DATABASE_URL")
+if not conn_string:
+    raise ValueError("DATABASE_URL environment variable not set. Please add it to your .env file.")
 
+# Set up the PostgresSaver
+db = AsyncPostgresSaver.from_conn_string(conn_string)
+print(f"Connected {db}")
+graph = builder.compile(checkpointer=db)
 
 # To execute graph in LangGraph Studio uncomment the following line
 # graph = asyncio.run(init_agent())
