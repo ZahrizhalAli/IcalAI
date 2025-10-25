@@ -1,7 +1,7 @@
-# CloneGoodside Documentation
+# Stella Documentation
 
 ## 1. Introduction
-CloneGoodside is an AI-powered clone agent designed to act as your digital version. It can mimic your voice and engage in conversations that reflect your personality. By learning from your speech and text patterns, CloneGoodside can serve as a virtual extension of yourself, making interactions feel natural and personalized.
+Stella is an AI-powered clone agent designed to act as your digital version. It can mimic your voice and engage in conversations that reflect your personality. By learning from your speech and text patterns, Stella can serve as a virtual extension of yourself, making interactions feel natural and personalized.
 
 ## 2. Stack
 CloneGoodside is built using a modern AI stack optimized for performance and flexibility:
